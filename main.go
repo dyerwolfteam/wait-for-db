@@ -31,19 +31,16 @@ func main() {
 - PGDATABASE: Database name
 - PGUSER: Database user
 - PGPASSWORD: Database password
+- PGSSLMODE: Database SSL mode
 - DEBUG: (optional) Set to "true" to print debug messages`)
 		return
-	}
-
-	for _, envVar := range []string{"PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD"} {
-		getEnvOrFail(envVar)
 	}
 
 	waiting := true
 	for waiting {
 		fmt.Println("Trying to connect to DB...")
-		connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable connect_timeout=3",
-			getEnvOrFail("PGHOST"), getEnvOrFail("PGPORT"), getEnvOrFail("PGDATABASE"), getEnvOrFail("PGUSER"), getEnvOrFail("PGPASSWORD"))
+		connStr := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=%s connect_timeout=3",
+			getEnvOrFail("PGHOST"), getEnvOrFail("PGPORT"), getEnvOrFail("PGDATABASE"), getEnvOrFail("PGUSER"), getEnvOrFail("PGPASSWORD"), getEnvOrFail("PGSSLMODE"))
 
 		db, err := sql.Open("postgres", connStr)
 		if err != nil {
