@@ -1,0 +1,69 @@
+# Cross-compiles wait-for-db for linux/amd64 and linux/arm64.
+#
+# Every push to main builds both binaries and keeps them as workflow
+# artifacts. Pushing a tag (e.g. `git tag 2026.10.11 && git push --tags`)
+# also publishes a GitHub release with these assets:
+#
+#   wait-for-db-linux-amd64
+#   wait-for-db-linux-arm64
+#   wait-for-db              (amd64; same name older releases used)
+#
+# Consumers pick the asset for their arch, e.g. in a Dockerfile:
+#   curl -fL -o wait-for-db \
+#     https://github.com/dyerwolfteam/wait-for-db/releases/download/<tag>/wait-for-db-linux-$ARCH
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: go build -trimpath -ldflags='-s -w' -o dist/wait-for-db-linux-${{ matrix.goarch }} .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wait-for-db-linux-${{ matrix.goarch }}
+          path: dist/wait-for-db-linux-${{ matrix.goarch }}
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          chmod +x dist/*
+          cp dist/wait-for-db-linux-amd64 dist/wait-for-db
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
